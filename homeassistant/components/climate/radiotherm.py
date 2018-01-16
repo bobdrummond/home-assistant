@@ -57,6 +57,9 @@ class RadioThermostat(ClimateDevice):
         self._target_temperature = None
         self._current_temperature = None
         self._current_operation = STATE_IDLE
+        self._current_fan_mode = None
+        self._operation_states = {STATE_OFF:0, STATE_HEAT:1, STATE_COOL:2, STATE_AUTO:3}
+        self._fan_states = {'Auto':0, 'On':2}
         self._name = None
         self.hold_temp = hold_temp
         self.update()
@@ -90,6 +93,21 @@ class RadioThermostat(ClimateDevice):
         return self._current_operation
 
     @property
+    def current_fan_mode(self):
+        """Return the fan setting."""
+        return self._current_fan_mode
+
+    @property
+    def fan_list(self):
+        """List of available fan modes."""
+        return list(self._fan_states.keys())
+
+    @property
+    def operation_list(self):
+        """List of available operation modes."""
+        return list(self._operation_states.keys())
+
+    @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
         return self._target_temperature
@@ -97,6 +115,7 @@ class RadioThermostat(ClimateDevice):
     def update(self):
         """Update the data from the thermostat."""
         self._current_temperature = self.device.temp['raw']
+        self._current_fan_mode = self.device.fmode['human']
         self._name = self.device.name['raw']
         if self.device.tmode['human'] == 'Cool':
             self._target_temperature = self.device.t_cool['raw']
@@ -104,6 +123,8 @@ class RadioThermostat(ClimateDevice):
         elif self.device.tmode['human'] == 'Heat':
             self._target_temperature = self.device.t_heat['raw']
             self._current_operation = STATE_HEAT
+        elif self.device.tmode['human'] == 'Auto':
+            self._current_operation = STATE_AUTO
         else:
             self._current_operation = STATE_IDLE
 
@@ -121,6 +142,12 @@ class RadioThermostat(ClimateDevice):
         else:
             self.device.hold = 0
 
+    def set_fan_mode(self, fan):
+        """Set new fan mode"""
+        self._current_fan_mode = fan
+        self.device.fmode = self._fan_states[fan]
+        self.update()
+
     def set_time(self):
         """Set device time."""
         now = datetime.datetime.now()
@@ -134,6 +161,8 @@ class RadioThermostat(ClimateDevice):
         elif operation_mode == STATE_AUTO:
             self.device.tmode = 3
         elif operation_mode == STATE_COOL:
+            self.device.tmode = 2
             self.device.t_cool = self._target_temperature
         elif operation_mode == STATE_HEAT:
+            self.device.tmode = 1
             self.device.t_heat = self._target_temperature
